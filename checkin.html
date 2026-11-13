@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check-in</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; color: #334155; min-height: 100vh; }
+        .glass-panel { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); border-radius: 1rem; }
+        
+        /* 1. DARK THEME */
+        body.theme-dark { background-color: #0f172a; color: #e2e8f0; }
+        body.theme-dark .glass-panel { background: #1e293b; border-color: #334155; }
+        body.theme-dark .bg-slate-50 { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important;}
+        body.theme-dark .text-slate-800, body.theme-dark .text-slate-700 { color: #f8fafc !important; }
+        body.theme-dark .text-slate-500 { color: #94a3b8 !important; }
+        body.theme-dark .bg-white { background-color: #1e293b !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+
+        /* 2. K2Y THEME */
+        body.theme-k2y { background-color: #111111; color: #e5e5e5; }
+        body.theme-k2y .glass-panel { background: #1a1a1a; border-color: #d97706; box-shadow: 0 4px 20px -2px rgba(217, 119, 6, 0.15); }
+        body.theme-k2y .bg-slate-50 { background-color: #111111 !important; border-color: #333333 !important; color: #e5e5e5 !important;}
+        body.theme-k2y .bg-white { background-color: #1a1a1a !important; border-color: #d97706 !important; color: #f5f5f5 !important; }
+        body.theme-k2y .text-slate-800 { color: #f59e0b !important; }
+        body.theme-k2y .text-slate-500 { color: #a3a3a3 !important; }
+        body.theme-k2y .bg-blue-600 { background-color: #f59e0b !important; color: #000 !important; }
+        body.theme-k2y .hover\:bg-blue-700:hover { background-color: #d97706 !important; }
+        body.theme-k2y .bg-blue-50 { background-color: #261c09 !important; border-color: #78350f !important; }
+        body.theme-k2y .text-blue-600 { color: #f59e0b !important; }
+
+        /* 3. BRIGHT THEME */
+        body.theme-bright { background-color: #fdf4ff; color: #701a75; }
+        body.theme-bright .glass-panel { background: rgba(255, 255, 255, 0.9); border-color: #fbcfe8; }
+        body.theme-bright .bg-slate-50 { background-color: #fce7f3 !important; border-color: #fbcfe8 !important; color: #831843 !important;}
+        body.theme-bright .bg-white { background-color: #ffffff !important; border-color: #fbcfe8 !important; color: #831843 !important; }
+        body.theme-bright .text-slate-800 { color: #831843 !important; }
+        body.theme-bright .text-slate-500 { color: #db2777 !important; }
+        body.theme-bright .bg-blue-600 { background-color: #ec4899 !important; color: #fff !important; }
+        body.theme-bright .hover\:bg-blue-700:hover { background-color: #db2777 !important; }
+        body.theme-bright .bg-blue-50 { background-color: #fdf2f8 !important; border-color: #fbcfe8 !important; }
+        body.theme-bright .text-blue-600 { color: #ec4899 !important; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const isGAS = typeof google !== 'undefined' && google.script;
+
+        const CheckInApp = () => {
+            const [urlData, setUrlData] = React.useState({});
+            const [loading, setLoading] = React.useState(true);
+            const [employees, setEmployees] = React.useState([]);
+            const [settings, setSettings] = React.useState({});
+
+            const [liffProfile, setLiffProfile] = React.useState(null);
+            const [isLiffInit, setIsLiffInit] = React.useState(false);
+            const [empIdInput, setEmpIdInput] = React.useState('');
+            const [statusHtml, setStatusHtml] = React.useState(null);
+            const [isCheckingIn, setIsCheckingIn] = React.useState(false); // เพิ่ม State สำหรับปุ่มโหลด
+
+            const loadData = () => {
+                if (isGAS) {
+                    google.script.run.withSuccessHandler(data => {
+                        const d = data || {};
+                        setEmployees(d.employees || []);
+                        setSettings(d.settings || {});
+                        setLoading(false);
+                    }).withFailureHandler(err => {
+                        console.error('Data Load Error:', err);
+                        setLoading(false);
+                    }).loadAllData();
+                } else {
+                    // จำลองข้อมูลกรณีทดสอบในระบบส่วนตัว
+                    setTimeout(() => {
+                        setEmployees([{ id: '001', name: 'พนักงาน ทดสอบ', tenure: '1-5 ปี', checkedIn: false, lineUserId: 'U123' }]);
+                        setSettings({ theme: 'standard' });
+                        setLoading(false);
+                    }, 800);
+                }
+            };
+
+            React.useEffect(() => {
+                if (isGAS) {
+                    google.script.url.getLocation(function(location) {
+                        if (location && location.parameter) {
+                            setUrlData({ 
+                                mode: location.parameter.mode, 
+                                uid: location.parameter.uid, 
+                                empId: location.parameter.empId 
+                            });
+                        }
+                        loadData();
+                    });
+                } else {
+                    const params = new URLSearchParams(window.location.search);
+                    setUrlData({ mode: params.get('mode'), uid: params.get('uid'), empId: params.get('empId') });
+                    loadData();
+                }
+            }, []);
+
+            React.useEffect(() => {
+                if (settings && settings.theme) {
+                    document.body.className = `theme-${settings.theme}`;
+                } else {
+                    document.body.className = 'theme-standard';
+                }
+            }, [settings]);
+
+            // LIFF Init
+            React.useEffect(() => {
+                if (!settings || !settings.liffId || typeof liff === 'undefined') return;
+                
+                let isMounted = true;
+                setIsLiffInit(true);
+                
+                const fallbackTimer = setTimeout(() => { if (isMounted) setIsLiffInit(false); }, 5000);
+
+                liff.init({ liffId: settings.liffId }).then(() => {
+                    clearTimeout(fallbackTimer);
+                    if (!isMounted) return;
+                    
+                    if (liff.isLoggedIn()) {
+                        liff.getProfile().then(profile => {
+                            if (isMounted) { setLiffProfile(profile); setIsLiffInit(false); }
+                        }).catch(() => { if (isMounted) setIsLiffInit(false); });
+                    } else {
+                        // บังคับล็อกอิน หากพบว่าใช้งานอยู่ภายในแอป LINE
+                        if (liff.isInClient()) {
+                            liff.login();
+                        } else {
+                            if (isMounted) setIsLiffInit(false);
+                        }
+                    }
+                }).catch(() => {
+                    clearTimeout(fallbackTimer);
+                    if (isMounted) setIsLiffInit(false);
+                });
+                
+                return () => { isMounted = false; clearTimeout(fallbackTimer); };
+            }, [settings]);
+
+            const autoMatchUser = React.useMemo(() => {
+                if (!employees || employees.length === 0) return null;
+                
+                // 1. ลองจับคู่จากโปรไฟล์ LINE LIFF (แม่นยำที่สุดเมื่อเปิดผ่านแอป)
+                if (liffProfile && liffProfile.userId) {
+                    const match = employees.find(e => e.lineUserId && String(e.lineUserId).trim() === String(liffProfile.userId).trim());
+                    if (match) return match;
+                }
+                
+                // 2. ลองจับคู่จาก URL Parameter (uid) (กรณีบอทส่งลิงก์มาให้)
+                if (urlData && urlData.uid) {
+                    const match = employees.find(e => e.lineUserId && String(e.lineUserId).trim() === String(urlData.uid).trim());
+                    if (match) return match;
+                }
+                
+                // 3. ลองจับคู่จากรหัสพนักงาน (empId)
+                if (urlData && urlData.empId) {
+                    const match = employees.find(e => e.id && String(e.id).trim() === String(urlData.empId).trim());
+                    if (match) return match;
+                }
+                
+                return null;
+            }, [urlData, employees, liffProfile]);
+
+            const processCheckIn = (id) => {
+                if(!id || !id.trim()) return;
+                setStatusHtml(null); 
+                setIsCheckingIn(true); // เริ่มสถานะโหลด
+                
+                const sendCheckInReq = (lat, lng) => {
+                    setStatusHtml(null);
+                    if (isGAS) {
+                        google.script.run
+                        .withSuccessHandler(res => {
+                            setIsCheckingIn(false); // ปิดสถานะโหลด
+                            if (res.success) {
+                                setStatusHtml(<span className="text-emerald-600 font-bold"><i className="fas fa-check-circle mr-2"></i> {res.message}</span>);
+                                setEmpIdInput('');
+                                loadData(); // รีเฟรชสถานะ
+                            } else {
+                                setStatusHtml(<span className="text-rose-600 font-bold"><i className="fas fa-times-circle mr-2"></i> {res.message}</span>);
+                            }
+                        })
+                        .withFailureHandler(err => {
+                            setIsCheckingIn(false); // ปิดสถานะโหลด
+                            console.error('Check-in Error:', err);
+                            setStatusHtml(<span className="text-rose-600 font-bold"><i className="fas fa-exclamation-triangle mr-2"></i> ระบบขัดข้อง: {err.message}</span>);
+                        })
+                        .doCheckIn(id.trim(), lat, lng); // ส่งข้อมูลพิกัดไปหลังบ้านด้วย
+                    } else {
+                        setTimeout(() => {
+                            setIsCheckingIn(false);
+                            setStatusHtml(<span className="text-emerald-600 font-bold"><i className="fas fa-check-circle mr-2"></i> เช็คอินจำลองสำเร็จ (GPS: {lat},{lng})</span>);
+                            setEmpIdInput('');
+                            // อัปเดตข้อมูลจำลอง
+                            let updatedEmps = [...employees];
+                            let empIndex = updatedEmps.findIndex(e => e.id === id.trim());
+                            if (empIndex > -1) updatedEmps[empIndex].checkedIn = true;
+                            setEmployees(updatedEmps);
+                        }, 800);
+                    }
+                };
+
+                // แสดงสถานะว่ากำลังขอตำแหน่ง
+                setStatusHtml(<span className="text-blue-600 font-bold animate-pulse"><i className="fas fa-location-crosshairs fa-spin mr-2"></i> กำลังดึงพิกัด GPS เพื่อยืนยันสถานที่...</span>);
+
+                // เริ่มกระบวนการดึง GPS ผ่านเบราว์เซอร์
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            // ดึงพิกัดสำเร็จ ส่งข้อมูลไปบันทึก
+                            sendCheckInReq(position.coords.latitude, position.coords.longitude);
+                        },
+                        (error) => {
+                            console.warn('GPS Error:', error);
+                            // หากผู้ใช้ไม่อนุญาต หรือหาพิกัดไม่เจอ ให้ทำการเช็คอินต่อไปแบบไม่มีพิกัด (ไม่บล็อกการเช็คอิน)
+                            sendCheckInReq('', '');
+                        },
+                        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                    );
+                } else {
+                    sendCheckInReq('', '');
+                }
+            };
+
+            const handleManualSubmit = (e) => {
+                e.preventDefault();
+                processCheckIn(empIdInput);
+            };
+
+            if (loading) return <div className="flex h-screen items-center justify-center text-slate-500 text-xl"><i className="fas fa-spinner fa-spin mr-3"></i> กำลังโหลดข้อมูล...</div>;
+
+            return (
+                <div className="container mx-auto px-4 py-8 max-w-5xl h-screen flex flex-col justify-center">
+                    {autoMatchUser ? (
+                        <div className="glass-panel p-8 md:p-12 max-w-md w-full mx-auto text-center relative overflow-hidden shadow-2xl">
+                            <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-600"></div>
+                            
+                            <img src={autoMatchUser.profileImg || `https://placehold.co/150x150/e2e8f0/475569?text=${encodeURIComponent(autoMatchUser.name.substring(0,2))}`} alt={autoMatchUser.name} className="w-32 h-32 mx-auto rounded-full border-4 border-white shadow-lg mb-5 object-cover bg-slate-100" />
+                            
+                            <h2 className="text-3xl font-bold mb-3 text-slate-800">{autoMatchUser.name}</h2>
+                            
+                            {/* เพิ่มส่วนแสดงรายละเอียดพนักงานให้สวยงาม */}
+                            <div className="flex flex-wrap justify-center gap-2 mb-8">
+                                <span className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full text-sm font-bold border border-slate-200">
+                                    <i className="fas fa-id-card mr-1"></i> รหัส: {autoMatchUser.id}
+                                </span>
+                                <span className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-sm font-bold border border-indigo-200">
+                                    <i className="fas fa-layer-group mr-1"></i> อายุงาน: {autoMatchUser.tenure}
+                                </span>
+                            </div>
+                            
+                            {autoMatchUser.checkedIn ? (
+                                <div className="bg-emerald-50 text-emerald-600 p-4 rounded-xl border border-emerald-200 font-bold text-lg mb-6">
+                                    <i className="fas fa-check-circle mr-2"></i> คุณได้เช็คอินเข้างานแล้ว
+                                </div>
+                            ) : (
+                                <button onClick={() => processCheckIn(autoMatchUser.id)} disabled={isCheckingIn} className={`w-full text-white text-lg font-bold py-4 rounded-xl transition-all shadow-lg ${isCheckingIn ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}>
+                                    {isCheckingIn ? <span><i className="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึกพิกัด...</span> : <span><i className="fas fa-sign-in-alt mr-2"></i> ยืนยันการเช็คอินหน้างาน</span>}
+                                </button>
+                            )}
+                            
+                            {statusHtml && <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100">{statusHtml}</div>}
+                        </div>
+                    ) : (
+                        <div className="glass-panel p-8 md:p-12 max-w-md w-full mx-auto text-center relative overflow-hidden shadow-2xl">
+                            <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-600"></div>
+                            <div className="inline-block p-5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-4xl mb-6 shadow-inner">
+                                {isLiffInit ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-user-lock"></i>}
+                            </div>
+                            <h2 className="text-3xl font-bold mb-3 text-slate-800">จุดเช็คอิน</h2>
+                            
+                            {isLiffInit ? (
+                                <div className="py-8 text-slate-500 font-medium animate-pulse">
+                                    กำลังตรวจสอบข้อมูลจาก LINE...
+                                </div>
+                            ) : (
+                                <span>
+                                    <p className="mb-4 text-slate-600 font-bold text-lg">ระบบไม่พบข้อมูลของคุณ</p>
+                                    <p className="mb-4 text-sm text-slate-500">อาจเกิดจากยังไม่ได้ลงทะเบียนล่วงหน้า หรือระบบดึงข้อมูล LINE ไม่สำเร็จ</p>
+                                    
+                                    {/* เพิ่มกล่อง Debug เพื่อหาสาเหตุ */}
+                                    <div className="bg-slate-50 p-4 rounded-xl text-left text-xs text-slate-600 mb-6 font-mono overflow-auto border border-slate-200">
+                                        <div className="font-bold text-slate-700 mb-2 border-b border-slate-200 pb-2"><i className="fas fa-bug text-rose-500 mr-1"></i> ข้อมูลตรวจสอบระบบ:</div>
+                                        <div className="mb-1">1. ตั้งค่า LIFF ID: {settings && settings.liffId ? <span className="text-emerald-600 font-bold">มีข้อมูล ({settings.liffId})</span> : <span className="text-rose-600 font-bold">ว่างเปล่า (ยังไม่ตั้งค่า)</span>}</div>
+                                        <div className="mb-1">2. รหัส LINE ผู้ใช้: {liffProfile ? <span className="text-emerald-600 font-bold">{liffProfile.userId}</span> : (urlData && urlData.uid ? <span className="text-blue-600 font-bold">{urlData.uid} (จากลิงก์)</span> : <span className="text-rose-600 font-bold">ดึงข้อมูลไม่ได้</span>)}</div>
+                                        <div>3. ฐานข้อมูลพนักงาน: {employees && employees.length > 0 ? <span className="text-emerald-600 font-bold">โหลดแล้ว {employees.length} คน</span> : <span className="text-rose-600 font-bold">โหลดข้อมูลไม่ได้ (0 คน)</span>}</div>
+                                    </div>
+
+                                    <button onClick={() => window.location.reload()} className="w-full mb-3 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 text-lg font-bold py-3 rounded-xl transition-all shadow-sm">
+                                        <i className="fas fa-sync-alt mr-2"></i> ลองโหลดใหม่อีกครั้ง
+                                    </button>
+                                    <button onClick={() => { if(typeof liff !== 'undefined' && liff.isInClient()) { liff.closeWindow(); } }} className="w-full bg-slate-200 text-slate-700 hover:bg-slate-300 text-lg font-bold py-3 rounded-xl transition-all shadow-sm">
+                                        ปิดหน้าต่าง
+                                    </button>
+                                </span>
+                            )}
+                            
+                            {statusHtml && <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100">{statusHtml}</div>}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<CheckInApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
